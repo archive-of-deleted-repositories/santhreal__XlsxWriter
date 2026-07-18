@@ -232,7 +232,15 @@ def convert_column_args(
                 int(args[0])
         except ValueError:
             # First arg isn't an int, convert to A1 notation.
-            cell_1, cell_2 = [col + "1" for col in args[0].split(":")]
+            # Allow "A" as "A:A"; reject empty or multi-colon ranges.
+            parts = args[0].split(":")
+            if len(parts) == 1:
+                if parts[0] == "":
+                    raise ValueError(f"Unknown column range: {args[0]}")
+                parts = [parts[0], parts[0]]
+            elif len(parts) != 2:
+                raise ValueError(f"Unknown column range: {args[0]}")
+            cell_1, cell_2 = [col + "1" for col in parts]
             _, col_1 = xl_cell_to_rowcol(cell_1)
             _, col_2 = xl_cell_to_rowcol(cell_2)
             new_args = [col_1, col_2]
@@ -647,6 +655,10 @@ class Worksheet(xmlwriter.XMLwriter):
         if isinstance(token, Url):
             return self._write_url(row, col, *args)
 
+        # Bytes are not a supported cell type (float(b"1") would mis-coerce).
+        if isinstance(token, (bytes, bytearray)):
+            raise TypeError(f"Unsupported type {type(token)} in write()")
+
         # We haven't matched a supported type. Try float.
         try:
             f = float(token)
@@ -693,6 +705,9 @@ class Worksheet(xmlwriter.XMLwriter):
         # Check that row and col are valid and store max and min values.
         if self._check_dimensions(row, col):
             return -1
+
+        if not isinstance(string, str):
+            raise TypeError(f"Unsupported type {type(string)} in write_string()")
 
         # Check that the string is < 32767 chars.
         if len(string) > self.xls_strmax:
