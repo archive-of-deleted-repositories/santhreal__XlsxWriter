@@ -647,6 +647,10 @@ class Worksheet(xmlwriter.XMLwriter):
         if isinstance(token, Url):
             return self._write_url(row, col, *args)
 
+        # Bytes are not a supported cell type (float(b"1") would mis-coerce).
+        if isinstance(token, (bytes, bytearray)):
+            raise TypeError(f"Unsupported type {type(token)} in write()")
+
         # We haven't matched a supported type. Try float.
         try:
             f = float(token)
@@ -693,6 +697,9 @@ class Worksheet(xmlwriter.XMLwriter):
         # Check that row and col are valid and store max and min values.
         if self._check_dimensions(row, col):
             return -1
+
+        if not isinstance(string, str):
+            raise TypeError(f"Unsupported type {type(string)} in write_string()")
 
         # Check that the string is < 32767 chars.
         if len(string) > self.xls_strmax:
